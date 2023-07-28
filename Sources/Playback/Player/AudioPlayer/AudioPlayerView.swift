@@ -25,7 +25,12 @@ protocol AudioPlayerViewDelegate: AnyObject {
 class AudioPlayerView: UIView {
     // MARK: - Properties
 
-    private lazy var backgroundView: UIView = UIView()
+    private lazy var backgroundView: UIImageView = {
+        let backgroundView = UIImageView()
+        backgroundView.contentMode = .scaleAspectFill
+        backgroundView.clipsToBounds = true
+        return backgroundView
+    }()
 
     private lazy var overlayView: UIView = UIView()
 
@@ -192,7 +197,36 @@ class AudioPlayerView: UIView {
     }
 
     func setupBackgroundColor() {
-        backgroundView.backgroundColor = thumbnailImageView.image?.averageColor
+        guard let image = thumbnailImageView.image else {
+            return
+        }
+        backgroundView.backgroundColor = image.averageColor
+
+        let context = CIContext(options: nil)
+        guard let inputImage = CIImage(image: image) else {
+            return
+        }
+
+        guard let blurFilter = CIFilter(name: "CIGaussianBlur") else {
+            return
+        }
+        blurFilter.setValue(inputImage, forKey: kCIInputImageKey)
+        blurFilter.setValue(80.0, forKey: kCIInputRadiusKey)
+
+        guard let colorFilter = CIFilter(name: "CIColorControls") else {
+            return
+        }
+        colorFilter.setValue(blurFilter.outputImage, forKey: kCIInputImageKey)
+        colorFilter.setValue(2.0, forKey: kCIInputSaturationKey)
+
+        guard let image = colorFilter.outputImage else {
+            return
+        }
+        let cgImage = context.createCGImage(image, from: inputImage.extent)
+        guard let image = cgImage else {
+            return
+        }
+        backgroundView.image = UIImage(cgImage: image)
     }
 
     func setupLabels() {
